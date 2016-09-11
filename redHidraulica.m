@@ -1,6 +1,8 @@
-clear;
-clc;
-filename = 'dumpUNIFORME';
+function [Caudal, perdidaCarga, LongitudDisco, ...
+          AreaSeccionDisco] = redHidraulica(filename)
+      
+
+% filename = 'dumpUNIFORME';
 [P, VERT, CON, J] = tet_voroVert(filename);
 
 disp('Asociados vertices y tetraedros')
@@ -88,12 +90,18 @@ PcaraInf     = PcaraSup - perdidaCarga;
 % superior.
 inputVoroFile = [filename,'InputVoro.txt'];
 DUMP  = dlmread(inputVoroFile);
-z     = DUMP(:,4);
-r     = DUMP(:,5);
+x      = DUMP(:,2);         % posicion x del centro de la particula
+y      = DUMP(:,3);         % posicion y del centro de la particula
+z      = DUMP(:,4);         % posicion z del centro de la particula
+r      = DUMP(:,5);         % radio de la particula
 z_max = z+r;
 z_min = z-r;
 z_top = max(z_max);
 z_inf = min(z_min);
+LongitudDisco = z_top - z_inf;
+distanciaCentroDisco = sqrt(x.^2 + y.^2);
+diametroDisco = max(distanciaCentroDisco);
+AreaSeccionDisco  = pi*(max(diametroDisco/2))^2;
 
 Presion(VERT(:,3)>z_top) = PcaraSup;
 Presion(VERT(:,3)<z_inf) = PcaraInf;
@@ -111,12 +119,15 @@ indiceContorno    = [indiceContornoSup; indiceContornoInf];
 % la posicion de los poros despues de haber aplicado las condiciones de
 % contorno
 indices = (1:Nvert)';
-
 for i = 1:Nvert
     for j = 1:NporosContorno
         Q(i) = Q(i) - K(i,indiceContorno(j)).*Presion(indiceContorno(j));
     end
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Caudal = abs(sum(Q(indiceContornoInf))); %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Elimina filas y columnas asociadas a los poros con condiciones de
 % contorno
@@ -128,9 +139,13 @@ indices(indiceContorno) = [];
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-% Escala las matrices por los ordenes de sus valores maximos
-% ordenK       = floor(log10(max(K(:))));
-% K = K./(1*10^(ordenK));
+% Mean normalization
+% K_mean = sum(K(:))/(length(K(:)));
+% Q_mean = sum(Q(:))/(length(Q(:)));
+% 
+% K = (K-K_mean)./(max(K(:))-min(K(:)));
+% Q = (Q-Q_mean)./(max(Q(:))-min(Q(:)));
+
 
 disp('Resolviendo el sistema de ecuaciones...')
 
@@ -168,7 +183,7 @@ for poro = 1:Nvert
     if(Pverts(poro)~=0)
         indicePresionOrdenada = find(valoresPresion == Pverts(poro));
         % redondea a uno de los 256 colores
-        indiceColor = ceil((indicePresionOrdenada/length(valoresPresion))*256); 
+        indiceColor = ceil((indicePresionOrdenada/length(valoresPresion))*255); 
         color = Mcolor(indiceColor, :);
         PresionColor(poro, :) = color;
     end
@@ -194,3 +209,4 @@ dlmwrite('CON_poros.txt', CON, 'delimiter', ' ');
 
 disp('Tareas completadas')
 
+end
